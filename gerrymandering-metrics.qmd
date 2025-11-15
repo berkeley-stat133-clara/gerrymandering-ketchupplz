@@ -3,9 +3,64 @@ title: Gerrymandering Metrics
 format: typst
 ---
 
+```{r setup}
+library(tidyverse)
+library(readr)
+
+# Load cleaned precinct-level data
+g24_clean <- read_csv("data/cleaned_g24_precinct.csv")
+g24_cd <- read_csv("data/g24-candidates-by-district.csv")
+```
+
 ### 2024 Election Results and the 2024 District Map
 
+```{r}
+# Summarize total votes per party in each district
+district_votes <- g24_cd |>
+  group_by(congressional_district, party) |>
+  summarise(total_votes = sum(votes, na.rm = TRUE)) |>
+  pivot_wider(names_from = party, values_from = total_votes, values_fill = 0)
 
+# Calculate Democratic vote share per district
+district_votes <- district_votes |>
+  mutate(
+    total = DEM + REP,
+    dem_share = DEM / total
+  )
+
+# Mean–Median Score
+mean_median_score <- mean(district_votes$dem_share, na.rm = TRUE) - median(district_votes$dem_share, na.rm = TRUE)
+
+mean_median_score
+
+# Function to compute wasted votes
+wasted_votes <- function(vA, vB) {
+  total <- vA + vB
+  majority <- total / 2
+  wasted_A <- ifelse(vA > vB, vA - majority, vA)
+  wasted_B <- ifelse(vB > vA, vB - majority, vB)
+  tibble(wasted_A, wasted_B)
+}
+
+district_votes <- district_votes %>%
+  mutate(wasted = wasted_votes(DEM, REP)) %>%
+  unnest_wider(wasted) %>%
+  mutate(total_wasted_gap = wasted_B - wasted_A)
+
+# Efficiency gap
+efficiency_gap <- sum(district_votes$total_wasted_gap) / sum(district_votes$total)
+efficiency_gap
+
+ggplot(district_votes, aes(x = reorder(congressional_district, dem_share), y = dem_share)) +
+  geom_col(fill = "steelblue") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
+  labs(
+    title = "Democratic Vote Share by Congressional District (2024)",
+    x = "District",
+    y = "Vote Share"
+  ) +
+  theme_minimal()
+
+```
 
 ### 2024 Election Results and the proposed 2025 District Map
-
