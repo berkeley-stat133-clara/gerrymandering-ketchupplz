@@ -3,26 +3,87 @@ title: Exploratory Data Analysis
 format: typst
 ---
 
+```{r}
+library(tidyverse)
+g24_clean <- read_csv("data/cleaned_g24_precinct.csv")
+glimpse(g24_clean)
+
+
+n_distinct(g24_clean$svprec)
+n_distinct(g24_clean$county)
+
+
+summary(g24_clean$votes)
+```
+
 ### Question 1
 
-Put your question here.
+Which countiries cast the most votes overall?
 
 ### Answer 1
 
-Put your answer here.
+```{r}
+# Total votes by county
+votes_by_county <- g24_clean |>
+  group_by(county) |>
+  summarise(total_votes = sum(votes, na.rm = TRUE)) |>
+  arrange(desc(total_votes))
+
+# View table
+head(votes_by_county)
+
+# Plot
+ggplot(votes_by_county, aes(x = reorder(county, total_votes), y = total_votes)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Total Votes by County (2024 General Election)",
+    x = "County",
+    y = "Total Votes"
+  ) +
+  theme_minimal()
+
+```
 
 ### Question 2
 
-Put your question here.
+Which races were closest?
 
 ### Answer 2
 
-Put your answer here.
+```{r}
+# Calculate margin between top two candidates per office and county
+closest_races <- g24_clean |>
+  group_by(county, office) |>
+  summarise(
+    total_votes = sum(votes, na.rm = TRUE),
+    top_two_margin = diff(sort(votes, decreasing = TRUE)[1:2]) / sum(votes, na.rm = TRUE)
+  ) |>
+  arrange(top_two_margin)
+
+# Display the closest 10 races
+head(closest_races, 10)
+
+```
 
 ### Question 3
 
-Put your question here.
+What proportion of votes came from renewabole vs total energy-related initiatives?
 
 ### Answer 3
 
-Put your answer here.
+```{r}
+# Filter for propositions related to energy
+energy_props <- g24_clean |>
+  filter(str_detect(office, regex("energy|renewable|climate", ignore_case = TRUE))) |>
+  group_by(office) |>
+  summarise(total_votes = sum(votes, na.rm = TRUE))
+
+# Compare to all propositions
+total_votes <- g24_clean |>
+  summarise(all_votes = sum(votes, na.rm = TRUE))
+
+energy_props |>
+  mutate(share = total_votes / total_votes$all_votes)
+
+```
