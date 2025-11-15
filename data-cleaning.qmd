@@ -3,3 +3,51 @@ title: Data Cleaning
 format: typst
 ---
 
+```{r}
+# load library
+library(tidyverse)
+library(readr)
+library(janitor)
+
+# read dataset
+g24_precinct <- read_csv("data/g24_sov_by_g24_svprec.csv")
+
+# check dimension and preview
+glimpse(g24_precinct)
+head(g24_precinct)
+
+# standarlize column names
+g24_precinct <- g24_precinct |>
+  janitor::clean_names()
+
+# convert numeric columns
+sapply(g24_precinct, class)
+
+g24_precinct <- g24_precinct |>
+  mutate(across(where(is.character),
+                ~ as.numeric(str_replace_all(., "[^0-9.-]", "")),
+                .names = "{.col}_num"))
+
+# clean missing vaule
+colSums(is.na(g24_precinct))
+
+g24_precinct <- g24_precinct |>
+  filter(!is.na(county), !is.na(svprec)) |>
+  mutate(across(contains("vote"), ~ replace_na(., 0)))
+
+# remove duplacate rows
+before_rows <- nrow(g24_precinct)
+
+g24_precinct <- g24_precinct |>
+  distinct()
+
+after_rows <- nrow(g24_precinct)
+
+# standardize text columns 
+g24_precinct <- g24_precinct |>
+  mutate(across(where(is.character), ~ str_squish(str_to_title(.))))
+
+# final check
+glimpse(g24_precinct)
+summary(g24_precinct)
+```
